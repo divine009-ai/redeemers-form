@@ -1,6 +1,8 @@
 const DEVICE_DRAFT_PREFIX = 'formguard_device_draft_';
 const LAST_USERNAME_KEY = 'formguard_last_username';
+const PENDING_IMPORT_KEY = 'formguard_pending_import_username';
 const FIELD_NAMES = ['username', 'fullName', 'age', 'department', 'email'];
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 
 const state = {
   saveTimer: null,
@@ -27,6 +29,47 @@ function normalizeText(value) {
 
 function getDraftKey(username) {
   return `${DEVICE_DRAFT_PREFIX}${normalizeText(username)}`;
+}
+
+function showRecoveryPrompt(draft, username, message) {
+  state.activeDraft = draft;
+  state.draftKey = getDraftKey(username);
+  resetRecoveryFlow();
+  setRecoveryModalVisible(true);
+  updateStatus('auto', message, 'warning');
+}
+
+function readStoredDraft(username) {
+  const key = getDraftKey(username);
+  const rawValue = localStorage.getItem(key);
+  if (!rawValue) return null;
+  if (rawValue === '1') {
+    localStorage.removeItem(key);
+    return null;
+  }
+
+  try {
+    const draft = JSON.parse(rawValue);
+    if (!isDraftData(draft)) throw new Error('Saved draft has an invalid format.');
+    return draft;
+  } catch (error) {
+    console.error('Unable to read saved draft', error);
+    throw new Error('The saved draft is invalid. Import a valid draft JSON file or reset this form.');
+  }
+}
+
+function isDraftData(value) {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    typeof value.username === 'string' &&
+    value.username.trim() &&
+    typeof value.fullName === 'string' &&
+    (typeof value.age === 'number' || typeof value.age === 'string') &&
+    typeof value.department === 'string' &&
+    typeof value.email === 'string'
+  );
 }
 
 function updateStatus(mode, message, type) {
@@ -109,14 +152,6 @@ function validateFormData(data) {
   return errors;
 }
 
-async function readStoredDraft(username) {
-  const response = await fetch(`/api/drafts/${encodeURIComponent(normalizeText(username))}`);
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`Draft lookup failed (${response.status}).`);
-  const result = await response.json();
-  return result.draft || null;
-}
-
 function setRecoveryModalVisible(visible) {
   recoveryModal.classList.toggle('hidden', !visible);
 }
@@ -135,7 +170,7 @@ function continueSavedDraft() {
   document.getElementById('verify-name-input').focus();
 }
 
-async function saveAutoDraft() {
+function saveAutoDraft() {
   const username = getCurrentUsername(autoForm);
   if (!username) {
     updateStatus('auto', 'Enter username to save', 'warning');
@@ -150,48 +185,13 @@ async function saveAutoDraft() {
   state.draftKey = key;
 
   try {
-    const response = await fetch(`/api/drafts/${encodeURIComponent(normalizeText(username))}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    if (!response.ok) throw new Error(`Draft save failed (${response.status}).`);
-    localStorage.setItem(key, '1');
+    localStorage.setItem(key, JSON.stringify(data));
     localStorage.setItem(LAST_USERNAME_KEY, normalizeText(username));
     updateStatus('auto', 'Draft saved', 'success');
   } catch (error) {
     console.error('Unable to save draft', error);
-    updateStatus('auto', 'Unable to save draft', 'danger');
+    updateStatus('auto', 'Unable to save draft in this browser', 'danger');
   }
-}
-
-async function openRecoveryPromptForUsername(username) {
-  let savedDraft;
-  try {
-    savedDraft = await readStoredDraft(username);
-  } catch (error) {
-    console.error('Unable to check for a saved draft', error);
-    updateStatus('auto', 'Unable to check draft', 'danger');
-    return;
-  }
-  if (!savedDraft) return;
-
-  const hasValue = Object.values(savedDraft).some((value) => {
-    if (typeof value === 'string') return value.trim() !== '';
-    if (typeof value === 'number') return !Number.isNaN(value);
-    return Boolean(value);
-  });
-
-  if (!hasValue) {
-    await deleteStoredDraft(username);
-    return;
-  }
-
-  state.activeDraft = savedDraft;
-  state.draftKey = getDraftKey(username);
-  resetRecoveryFlow();
-  setRecoveryModalVisible(true);
-  updateStatus('auto', 'Draft available', 'warning');
 }
 
 function verifyDraftIdentity() {
@@ -229,7 +229,9 @@ function restoreSavedDraft() {
   const username = getCurrentUsername(autoForm);
   if (username) {
     state.resolvedUsername = normalizeText(username);
-    localStorage.setItem(getDraftKey(username), '1');
+    if (localStorage.getItem(PENDING_IMPORT_KEY) === state.resolvedUsername) {
+      localStorage.removeItem(PENDING_IMPORT_KEY);
+    }
     localStorage.setItem(LAST_USERNAME_KEY, normalizeText(username));
   }
   updateStatus('auto', 'Draft restored', 'success');
@@ -239,14 +241,11 @@ function restoreSavedDraft() {
   state.draftKey = null;
 }
 
-async function deleteStoredDraft(username) {
-  const response = await fetch(`/api/drafts/${encodeURIComponent(normalizeText(username))}`, {
-    method: 'DELETE'
-  });
-  if (!response.ok && response.status !== 404) {
-    throw new Error(`Draft deletion failed (${response.status}).`);
-  }
+function deleteStoredDraft(username) {
   localStorage.removeItem(getDraftKey(username));
+  if (localStorage.getItem(LAST_USERNAME_KEY) === normalizeText(username)) {
+    localStorage.removeItem(LAST_USERNAME_KEY);
+  }
 }
 
 function cancelRecovery() {
@@ -267,7 +266,7 @@ function saveFromForm(form, mode) {
   updateStatus('conventional', 'No automatic save', 'neutral');
 }
 
-async function simulateInterruption(mode) {
+function simulateInterruption(mode) {
   if (mode === 'conventional') {
     conventionalForm.reset();
     updateStatus('conventional', 'Data lost after interruption', 'danger');
@@ -279,20 +278,14 @@ async function simulateInterruption(mode) {
   if (username && countEligibleFields(data) > 0) {
     const payload = { ...data, savedAt: new Date().toISOString(), completed: false };
     try {
-      const response = await fetch(`/api/drafts/${encodeURIComponent(normalizeText(username))}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) throw new Error(`Draft save failed (${response.status}).`);
-      localStorage.setItem(getDraftKey(username), '1');
+      localStorage.setItem(getDraftKey(username), JSON.stringify(payload));
       localStorage.setItem(LAST_USERNAME_KEY, normalizeText(username));
       autoForm.reset();
       applyFormData(autoForm, payload);
       updateStatus('auto', 'Interrupted — draft restored', 'success');
     } catch (error) {
       console.error('Unable to save draft before interruption', error);
-      updateStatus('auto', 'Unable to save draft', 'danger');
+      updateStatus('auto', 'Unable to save draft in this browser', 'danger');
     }
   } else {
     updateStatus('auto', 'No valid draft to save', 'warning');
@@ -368,7 +361,7 @@ function countMatchingValues(savedData, currentData) {
   return matched;
 }
 
-async function runEvaluation() {
+function runEvaluation() {
   const conventionalData = getFormData(conventionalForm);
   const autoData = getFormData(autoForm);
   const conventionalEligible = countEligibleFields(conventionalData);
@@ -386,14 +379,12 @@ async function runEvaluation() {
 
   const username = getCurrentUsername(autoForm);
   let savedDraft = null;
-  if (username) {
-    try {
-      savedDraft = await readStoredDraft(username);
-    } catch (error) {
-      console.error('Unable to load draft for evaluation', error);
-      evaluationStatus.textContent = 'Unable to load the saved draft for evaluation.';
-      return;
-    }
+  try {
+    savedDraft = username ? readStoredDraft(username) : null;
+  } catch (error) {
+    console.error('Unable to load draft for evaluation', error);
+    evaluationStatus.textContent = error.message;
+    return;
   }
   const autoRecovered = savedDraft ? countMatchingValues(savedDraft, autoData) : 0;
   const autoLostFields = autoEligible - autoRecovered;
@@ -438,7 +429,7 @@ function onAutoInput() {
   }, 350);
 }
 
-async function onUsernameChange() {
+function onUsernameChange() {
   const username = getCurrentUsername(autoForm);
   if (!username) return;
   const normalizedUsername = normalizeText(username);
@@ -446,38 +437,105 @@ async function onUsernameChange() {
   if (state.activeDraft && normalizeText(state.activeDraft.username) === normalizedUsername) return;
   state.lookupUsername = normalizedUsername;
   try {
-    const draft = await readStoredDraft(username);
+    const draft = readStoredDraft(username);
     if (!draft) {
       state.resolvedUsername = normalizedUsername;
       return;
     }
-    if (localStorage.getItem(getDraftKey(username))) {
-      state.activeDraft = draft;
-      restoreSavedDraft();
+    if (localStorage.getItem(PENDING_IMPORT_KEY) === normalizedUsername) {
+      showRecoveryPrompt(draft, username, 'Imported draft needs verification');
       return;
     }
-    await openRecoveryPromptForUsername(username);
+    state.activeDraft = draft;
+    restoreSavedDraft();
   } catch (error) {
     console.error('Unable to check for a saved draft', error);
-    updateStatus('auto', 'Unable to check draft', 'danger');
+    updateStatus('auto', error.message, 'danger');
   } finally {
     if (state.lookupUsername === normalizedUsername) state.lookupUsername = '';
   }
 }
 
-async function checkSavedDraftOnLoad() {
-  const username = localStorage.getItem(LAST_USERNAME_KEY);
+function checkSavedDraftOnLoad() {
+  const pendingImportUsername = localStorage.getItem(PENDING_IMPORT_KEY);
+  const isPendingImport = Boolean(pendingImportUsername);
+  const username = pendingImportUsername || localStorage.getItem(LAST_USERNAME_KEY);
   if (!username) return;
   try {
-    const draft = await readStoredDraft(username);
+    const draft = readStoredDraft(username);
     if (!draft) return;
     state.activeDraft = draft;
     state.draftKey = getDraftKey(username);
-    state.resolvedUsername = normalizeText(username);
-    restoreSavedDraft();
+    if (isPendingImport) {
+      showRecoveryPrompt(draft, username, 'Imported draft needs verification');
+    } else {
+      state.resolvedUsername = normalizeText(username);
+      restoreSavedDraft();
+    }
   } catch (error) {
     console.error('Unable to restore the saved draft on this device', error);
-    updateStatus('auto', 'Unable to restore draft', 'danger');
+    updateStatus('auto', error.message, 'danger');
+  }
+}
+
+function exportDraft() {
+  const username = getCurrentUsername(autoForm);
+  if (!username) {
+    updateStatus('auto', 'Enter a username before exporting', 'warning');
+    return;
+  }
+
+  const draft = {
+    ...getFormData(autoForm),
+    savedAt: new Date().toISOString(),
+    completed: false
+  };
+  try {
+    localStorage.setItem(getDraftKey(username), JSON.stringify(draft));
+    localStorage.setItem(LAST_USERNAME_KEY, normalizeText(username));
+  } catch (error) {
+    console.error('Unable to prepare draft export', error);
+    updateStatus('auto', error.message, 'danger');
+    return;
+  }
+
+  const file = new Blob([JSON.stringify(draft, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(file);
+  link.download = `formguard-draft-${normalizeText(username).replace(/[^a-z0-9_-]/g, '_')}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 0);
+  updateStatus('auto', 'Draft JSON exported', 'success');
+}
+
+async function importDraft(file) {
+  if (!file) return;
+  if (file.size > MAX_IMPORT_BYTES) {
+    updateStatus('auto', 'JSON draft must be smaller than 5 MB', 'danger');
+    return;
+  }
+
+  try {
+    const draft = JSON.parse(await file.text());
+    if (!isDraftData(draft) || !draft.fullName.trim()) {
+      throw new Error('The file must contain a FORMGUARD draft with a username and full name.');
+    }
+    const username = draft.username.trim();
+    const normalizedUsername = normalizeText(username);
+    localStorage.setItem(getDraftKey(username), JSON.stringify(draft));
+    localStorage.setItem(PENDING_IMPORT_KEY, normalizedUsername);
+    localStorage.removeItem(LAST_USERNAME_KEY);
+    state.activeDraft = draft;
+    state.draftKey = getDraftKey(username);
+    state.resolvedUsername = '';
+    resetRecoveryFlow();
+    recoveryStep1.classList.remove('hidden');
+    recoveryStep2.classList.add('hidden');
+    setRecoveryModalVisible(true);
+    updateStatus('auto', 'Draft imported — verify to restore', 'warning');
+  } catch (error) {
+    console.error('Unable to import draft JSON', error);
+    updateStatus('auto', error.message || 'Unable to read draft JSON', 'danger');
   }
 }
 
@@ -497,15 +555,15 @@ function setupFormBindings() {
 
   document.querySelector('[data-reset="auto"]').addEventListener('click', () => {
     const username = getCurrentUsername(autoForm);
+    clearTimeout(state.saveTimer);
+    state.resolvedUsername = '';
+    state.activeDraft = null;
     autoForm.reset();
     resetRecoveryFlow();
     if (username) {
-      deleteStoredDraft(username).catch((error) => {
-        console.error('Unable to delete saved draft', error);
-        updateStatus('auto', 'Unable to delete draft', 'danger');
-      });
-      if (localStorage.getItem(LAST_USERNAME_KEY) === normalizeText(username)) {
-        localStorage.removeItem(LAST_USERNAME_KEY);
+      deleteStoredDraft(username);
+      if (localStorage.getItem(PENDING_IMPORT_KEY) === normalizeText(username)) {
+        localStorage.removeItem(PENDING_IMPORT_KEY);
       }
     }
     updateStatus('auto', 'Form reset', 'neutral');
@@ -518,6 +576,11 @@ function setupFormBindings() {
   document.getElementById('verify-name-btn').addEventListener('click', verifyDraftIdentity);
   document.getElementById('cancel-recovery-btn').addEventListener('click', cancelRecovery);
   document.getElementById('cancel-restore-btn').addEventListener('click', cancelRecovery);
+  document.getElementById('export-draft-btn').addEventListener('click', exportDraft);
+  document.getElementById('import-draft-input').addEventListener('change', (event) => {
+    importDraft(event.target.files[0]);
+    event.target.value = '';
+  });
   document.getElementById('run-evaluation-btn').addEventListener('click', runEvaluation);
   document.getElementById('reset-results-btn').addEventListener('click', resetResults);
 }

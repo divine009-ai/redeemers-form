@@ -363,6 +363,12 @@ select:focus {
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
 
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
 .btn:hover {
   transform: translateY(-1px);
 }

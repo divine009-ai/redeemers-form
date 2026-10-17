@@ -38,7 +38,7 @@
             </div>
             <div class="stat-box">
               <span>Storage</span>
-              <strong>Shared JSON file</strong>
+              <strong>Browser + JSON export</strong>
             </div>
             <div class="stat-box">
               <span>Recovery</span>
@@ -63,7 +63,7 @@
             <article class="info-card">
               <h4>The proposed solution</h4>
               <p>
-                Automatic saving sends the current form data to the server, which records drafts in a shared JSON file. Drafts can be retrieved from another device that can reach the same server.
+                Automatic saving stores a JSON draft in this browser. To continue on another device, export the draft as a .json file, move it to that device, and import it there.
               </p>
             </article>
             <article class="info-card">
@@ -85,7 +85,7 @@
             <article class="info-card">
               <h4>Technologies used</h4>
               <p>
-                The implementation uses HTML, CSS, and JavaScript in the browser, plus a small Node.js server. The server stores drafts as JSON in data/drafts.json.
+                The implementation uses HTML, CSS, and JavaScript. Drafts are saved as JSON in browser storage, with JSON file export and import for manually transferring a draft to another device.
               </p>
             </article>
             <article class="info-card">
@@ -94,18 +94,16 @@
                 <li>The user opens the form.</li>
                 <li>The user enters a username and form data.</li>
                 <li>The auto-saving mode listens for changes.</li>
-                <li>The application serializes the current state as JSON.</li>
-                <li>A draft is sent to the server and stored in data/drafts.json.</li>
-                <li>The website later checks whether a relevant unfinished draft exists.</li>
-                <li>On the same device, a previously saved draft is restored automatically after reload.</li>
-                <li>On another device, the user is asked whether to continue and must verify their full name.</li>
-                <li>After verification, the saved values are restored into the form.</li>
+                <li>The application saves the current state as JSON in this browser.</li>
+                <li>On this device, a previously saved draft is restored automatically after reload.</li>
+                <li>To move a draft to another device, export its JSON file and import that file on the other device.</li>
+                <li>The imported draft requires full-name verification before its saved values are restored.</li>
               </ol>
             </article>
             <article class="info-card">
               <h4>Limitations</h4>
               <p>
-                The JSON file is shared only through the server; devices must connect to that same server. The demo has no account login or strong authentication, so it must not be exposed publicly or used for real sensitive information without adding secure authentication and transport encryption.
+                Browser drafts do not sync automatically across devices. Exported JSON files must be transferred and imported manually, and contain personal information; store and share them carefully. Browser storage capacity varies by browser.
               </p>
             </article>
           </div>
@@ -114,29 +112,27 @@
         <section class="panel section-block">
           <div class="section-heading">
             <p class="section-kicker">System architecture</p>
-            <h3>Shared JSON storage architecture</h3>
+            <h3>Local JSON storage and transfer</h3>
           </div>
 
-          <pre class="diagram" aria-label="Diagram showing user, form, JavaScript, server API, JSON file, recovery, and form restoration">User
+          <pre class="diagram" aria-label="Diagram showing user, form, browser JSON storage, JSON file transfer, recovery, and form restoration">User
   ↓
 HTML Form
   ↓
 JavaScript Event Handling
   ↓
-JSON API Request
+JSON Serialization
   ↓
-Node.js Server
+Browser Storage
   ↓
-data/drafts.json
+JSON Export / Import
   ↓
-Draft Retrieval
-  ↓
-JSON Parsing
+JSON Parsing and Verification
   ↓
 Form Restoration</pre>
 
           <p class="section-note">
-            Start the server with <code>node server.js</code>, then open <code>http://localhost:3000</code>. To test from another device on the same network, open the server computer's local network address on that device. The server must remain running and reachable. This demo stores personal information without strong authentication; do not expose it to the public internet or use real sensitive data.
+            Drafts automatically recover on the same device and browser. For another device, export the draft JSON file, transfer it securely, then import it and verify the saved full name. GitHub Pages can host this browser-only version; no server is required.
           </p>
         </section>
 
@@ -217,8 +213,12 @@ Form Restoration</pre>
 
               <div class="button-row">
                 <button type="button" class="btn secondary" data-reset="auto">Reset</button>
+                <button type="button" class="btn secondary" id="export-draft-btn">Export draft JSON</button>
+                <label class="btn secondary file-button" for="import-draft-input">Import draft JSON</label>
+                <input type="file" id="import-draft-input" accept=".json,application/json" hidden />
                 <button type="button" class="btn danger" data-interrupt="auto">Simulate interruption</button>
               </div>
+              <p class="field-note">To use this draft on another device, export the JSON file and import it there. The file contains personal information.</p>
             </article>
           </div>
         </section>
