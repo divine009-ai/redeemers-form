@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FORMGUARD — Auto-Save & Recovery System</title>
+    <meta name="description" content="Auto-saving web form project for preventing data loss in long online applications." />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="container topbar-inner">
+          <div class="brand-wrap" aria-label="FORMGUARD branding">
+            <div class="brand-mark" aria-hidden="true">🛡</div>
+            <div>
+              <p class="eyebrow">Undergraduate Information Technology Project</p>
+              <h1>FORMGUARD</h1>
+            </div>
+          </div>
+          <div class="hero-tag">Auto-Save & Recovery System</div>
+        </div>
+      </header>
+
+      <main class="container main-content">
+        <section class="hero panel">
+          <div class="hero-copy">
+            <p class="section-kicker">Project overview</p>
+            <h2>Development of an Auto-Saving Web Form for Preventing Data Loss During Long Online Applications</h2>
+            <p>
+              This project examines how long application forms can cause users to lose progress after refreshes or interruptions. FORMGUARD demonstrates how automatic drafting and identity-aware recovery can protect partially completed work and reduce re-entry burden.
+            </p>
+          </div>
+          <div class="hero-stats">
+            <div class="stat-box">
+              <span>Focus</span>
+              <strong>Application resilience</strong>
+            </div>
+            <div class="stat-box">
+              <span>Storage</span>
+              <strong>LocalStorage</strong>
+            </div>
+            <div class="stat-box">
+              <span>Recovery</span>
+              <strong>Draft verification</strong>
+            </div>
+          </div>
+        </section>
+
+        <section id="about" class="panel section-block">
+          <div class="section-heading">
+            <p class="section-kicker">About this project</p>
+            <h3>Problem, solution, and purpose</h3>
+          </div>
+
+          <div class="content-grid two-col">
+            <article class="info-card">
+              <h4>The problem</h4>
+              <p>
+                Long online applications often require a user to complete many fields. If the browser refreshes unexpectedly, the tab closes, or the session ends, information can be lost. The user may need to re-enter multiple fields before continuing.
+              </p>
+            </article>
+            <article class="info-card">
+              <h4>The proposed solution</h4>
+              <p>
+                Automatic saving stores the current form data in LocalStorage as the user types. If an unfinished draft exists, the website can detect it and ask the user to verify their identity before offering a restore option.
+              </p>
+            </article>
+            <article class="info-card">
+              <h4>Project aim</h4>
+              <p>
+                The project develops and evaluates an auto-saving web form designed to reduce data loss and improve the completion experience for long online applications.
+              </p>
+            </article>
+            <article class="info-card">
+              <h4>Project objectives</h4>
+              <ol>
+                <li>Develop a conventional form for comparison.</li>
+                <li>Implement automatic saving of partially completed data.</li>
+                <li>Restore saved data after supported interruptions.</li>
+                <li>Simulate interruptions under controlled conditions.</li>
+                <li>Evaluate both systems using recovery rate, lost fields, and completion time.</li>
+              </ol>
+            </article>
+            <article class="info-card">
+              <h4>Technologies used</h4>
+              <p>
+                The implementation uses HTML for structure, CSS for interface styling and responsive layout, and JavaScript for event handling, validation, LocalStorage persistence, and recovery logic. Data is stored as JSON and restored by parsing the saved draft.
+              </p>
+            </article>
+            <article class="info-card">
+              <h4>How the system works</h4>
+              <ol>
+                <li>The user opens the form.</li>
+                <li>The user enters a username and form data.</li>
+                <li>The auto-saving mode listens for changes.</li>
+                <li>The application serializes the current state as JSON.</li>
+                <li>A draft is stored locally in LocalStorage.</li>
+                <li>The website later checks whether a relevant unfinished draft exists.</li>
+                <li>It asks the user to verify their full name before releasing the data.</li>
+                <li>The user chooses whether to restore or cancel.</li>
+                <li>If confirmed, the saved values are restored into the form.</li>
+              </ol>
+            </article>
+            <article class="info-card">
+              <h4>Limitations</h4>
+              <p>
+                Browser storage is local to the same origin and browser. It cannot synchronise automatically between devices. Changes made immediately before the next save can still be lost. Identity verification is limited to checking a name against a stored draft, not strong authentication.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel section-block">
+          <div class="section-heading">
+            <p class="section-kicker">System architecture</p>
+            <h3>Browser-based architecture</h3>
+          </div>
+
+          <pre class="diagram" aria-label="Diagram showing user, form, JavaScript, JSON, LocalStorage, recovery, parsing, form restoration">User
+  ↓
+HTML Form
+  ↓
+JavaScript Event Handling
+  ↓
+JSON Serialization
+  ↓
+Browser LocalStorage
+  ↓
+Draft Retrieval
+  ↓
+JSON Parsing
+  ↓
+Form Restoration</pre>
+
+          <p class="section-note">
+            This architecture matches the implemented prototype: all saving and retrieval operations happen within the browser and not across devices. No backend or server-side database is active in this implementation.
+          </p>
+        </section>
+
+        <section id="demo" class="panel section-block">
+          <div class="section-heading">
+            <p class="section-kicker">Demonstration</p>
+            <h3>Conventional and auto-saving form comparison</h3>
+          </div>
+
+          <div class="comparison-grid">
+            <div class="compare-box">
+              <h4>Conventional Form</h4>
+              <p>Does not automatically save unfinished entries. It demonstrates the data-loss impact of an interruption.</p>
+            </div>
+            <div class="compare-box">
+              <h4>Auto-Saving Form</h4>
+              <p>Stores the application as the user types and supports draft recovery after a refresh or reopen.</p>
+            </div>
+          </div>
+
+          <div class="demo-grid">
+            <article class="mode-panel">
+              <div class="mode-header">
+                <div>
+                  <p class="section-kicker small">Mode 1</p>
+                  <h4>Conventional</h4>
+                </div>
+                <span class="status-badge neutral" id="conventional-status">No automatic save</span>
+              </div>
+
+              <form id="conventional-form" class="application-form" novalidate>
+                <div class="field-grid">
+                  <label>Username<input name="username" type="text" placeholder="e.g. peter123" /></label>
+                  <label>Full name<input name="fullName" type="text" placeholder="e.g. Peter Johnson" /></label>
+                  <label>Age<input name="age" type="number" min="16" max="120" placeholder="20" /></label>
+                  <label>Department<select name="department">
+                    <option value="">Select department</option>
+                    <option>Information Technology</option>
+                    <option>Computer Science</option>
+                    <option>Business Information Systems</option>
+                    <option>Engineering</option>
+                  </select></label>
+                  <label class="full-span">Email address<input name="email" type="email" placeholder="name@example.com" /></label>
+                </div>
+                <p class="field-note">This mode intentionally does not persist changes automatically.</p>
+              </form>
+
+              <div class="button-row">
+                <button type="button" class="btn secondary" data-reset="conventional">Reset</button>
+                <button type="button" class="btn danger" data-interrupt="conventional">Simulate interruption</button>
+              </div>
+            </article>
+
+            <article class="mode-panel">
+              <div class="mode-header">
+                <div>
+                  <p class="section-kicker small">Mode 2</p>
+                  <h4>Auto-saving</h4>
+                </div>
+                <span class="status-badge neutral" id="auto-status">Waiting for input</span>
+              </div>
+
+              <form id="auto-form" class="application-form" novalidate>
+                <div class="field-grid">
+                  <label>Username<input name="username" type="text" placeholder="e.g. peter123" /></label>
+                  <label>Full name<input name="fullName" type="text" placeholder="e.g. Peter Johnson" /></label>
+                  <label>Age<input name="age" type="number" min="16" max="120" placeholder="20" /></label>
+                  <label>Department<select name="department">
+                    <option value="">Select department</option>
+                    <option>Information Technology</option>
+                    <option>Computer Science</option>
+                    <option>Business Information Systems</option>
+                    <option>Engineering</option>
+                  </select></label>
+                  <label class="full-span">Email address<input name="email" type="email" placeholder="name@example.com" /></label>
+                </div>
+              </form>
+
+              <div class="button-row">
+                <button type="button" class="btn secondary" data-reset="auto">Reset</button>
+                <button type="button" class="btn danger" data-interrupt="auto">Simulate interruption</button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <div id="recovery-modal" class="modal hidden" aria-live="polite">
+          <div class="modal-card">
+            <h4>Saved Draft Found</h4>
+            <p>We found an unfinished application for this username. Do you want to continue editing it?</p>
+            <div id="recovery-step-1" class="recover-panel">
+              <div class="button-row">
+                <button type="button" class="btn secondary" id="cancel-recovery-btn">No, start new</button>
+                <button type="button" class="btn primary" id="continue-draft-btn">Yes, continue</button>
+              </div>
+            </div>
+            <div id="recovery-step-2" class="recover-panel hidden">
+              <label class="modal-label">What is your full name?
+                <input id="verify-name-input" type="text" placeholder="Enter your full name" />
+              </label>
+              <div class="button-row">
+                <button type="button" class="btn secondary" id="cancel-restore-btn">Cancel</button>
+                <button type="button" class="btn primary" id="verify-name-btn">Verify identity</button>
+              </div>
+              <p id="recovery-error" class="error-message" role="alert"></p>
+            </div>
+          </div>
+        </div>
+
+        <section id="evaluation" class="panel section-block">
+          <div class="section-heading">
+            <p class="section-kicker">Testing and evaluation</p>
+            <h3>Recovery rate, lost fields, completion time</h3>
+          </div>
+
+          <div class="formula-block">
+            <p><strong>Recovery Rate (%)</strong> = (Correctly Recovered Eligible Fields / Total Eligible Fields Entered Before Interruption) × 100</p>
+            <p><strong>Lost Fields</strong> = Eligible Fields Entered Before Interruption − Correctly Recovered Eligible Fields</p>
+            <p><strong>Completion Time</strong> = Time from a form attempt start until successful completion, including any time spent re-entering data.</p>
+            <p><strong>Time Reduction (%)</strong> = ((Conventional Mean Time − Auto-Saving Mean Time) / Conventional Mean Time) × 100</p>
+          </div>
+
+          <div class="results-toolbar">
+            <button type="button" id="run-evaluation-btn" class="btn primary">Run controlled comparison</button>
+            <button type="button" id="reset-results-btn" class="btn secondary">Reset results</button>
+          </div>
+
+          <div id="evaluation-status" class="evaluation-status">No measured results are available yet. Run the comparison to record the current test data.</div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Evaluation metric</th>
+                  <th>Conventional form</th>
+                  <th>Auto-saving form</th>
+                  <th>Difference</th>
+                  <th>Interpretation</th>
+                </tr>
+              </thead>
+              <tbody id="results-body">
+                <tr>
+                  <td>Recovery Rate</td>
+                  <td>Pending</td>
+                  <td>Pending</td>
+                  <td>–</td>
+                  <td>Awaiting trial results.</td>
+                </tr>
+                <tr>
+                  <td>Lost Fields</td>
+                  <td>Pending</td>
+                  <td>Pending</td>
+                  <td>–</td>
+                  <td>Awaiting trial results.</td>
+                </tr>
+                <tr>
+                  <td>Completion Time</td>
+                  <td>Pending</td>
+                  <td>Pending</td>
+                  <td>–</td>
+                  <td>Awaiting trial results.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel section-block">
+          <div class="section-heading">
+            <p class="section-kicker">How it works</p>
+            <h3>Project walkthrough</h3>
+          </div>
+
+          <ol class="walkthrough-list">
+            <li>Open the conventional form and enter sample details.</li>
+            <li>Simulate an interruption and observe that the form does not save automatically.</li>
+            <li>Open the auto-saving form and enter comparable details.</li>
+            <li>Check that the saved draft status updates after input changes.</li>
+            <li>Use the draft recovery prompt to verify the name and restore the saved form.</li>
+            <li>Compare the effect on recovery, lost fields, and completion time.</li>
+            <li>Reset data between trials to prevent previous test values from affecting later runs.</li>
+          </ol>
+        </section>
+
+        <section class="panel section-block">
+          <div class="section-heading">
+            <p class="section-kicker">Academic report structure</p>
+            <h3>Formal project documentation</h3>
+          </div>
+
+          <div class="report-grid">
+            <div>Title</div>
+            <div>Abstract</div>
+            <div>Introduction</div>
+            <div>Background of the Problem</div>
+            <div>Problem Statement</div>
+            <div>Aim and Objectives</div>
+            <div>Scope</div>
+            <div>Significance</div>
+            <div>System Requirements</div>
+            <div>Technologies Used</div>
+            <div>System Design and Architecture</div>
+            <div>Methodology</div>
+            <div>Implementation Details</div>
+            <div>Testing Procedures</div>
+            <div>Results and Analysis</div>
+            <div>Discussion</div>
+            <div>Limitations</div>
+            <div>Conclusion</div>
+            <div>Future Work</div>
+            <div>References</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
